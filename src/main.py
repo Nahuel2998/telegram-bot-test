@@ -150,7 +150,11 @@ async def obtener_clima(update: Update, _) -> Estado:
     res = requests.get(full_url)
 
     if not res.ok:
-        await msg.edit_text("No pude encontrar esa ciudad. Intente con una diferente.")
+        await msg.edit_text(
+            "No pude encontrar esa ciudad. Intente con una diferente."
+            if res.status_code == 404 else
+            "Algo malo ha pasado, intentelo nuevamente. (/no para rendirse.)"
+        )
         return Estado.CHOOSING_CITY
 
     # Se borra el mensaje temporal en vez de editarlo
@@ -203,6 +207,7 @@ def main() -> None:
     try:
         config = toml.load("config.toml")
         # TODO: Checkear si los tokens son correctos?
+        # Too much for 4 hours
     except FileNotFoundError:
         print("Archivo config.toml no encontrado.")
         exit(ENOENT)
