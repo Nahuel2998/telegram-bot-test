@@ -136,17 +136,19 @@ async def nuevo_clima(update: Update, _) -> Estado:
 
 async def obtener_clima(update: Update, _) -> Estado:
     """Obtener clima dada la ciudad proporcionada"""
+    ciudad = update.message.text
+
     # Mensaje de carga
     msg = await update.message.reply_text(
         text=random.choice([
             "Recompilando informacion...",
             "Mirando al cielo...",
             "Testeando aguas...",
-            f"Viajando a {update.message.text}...",
+            f"Viajando a {ciudad}...",
             "No es mi culpa que los del clima sean tan lentos...",
         ])
     )
-    full_url = f"{API_URL}?q={update.message.text}&appid={config[WEATHER_API_KEY]}&units=metric"
+    full_url = f"{API_URL}?q={ciudad}&appid={config[WEATHER_API_KEY]}&units=metric"
     res = requests.get(full_url)
 
     if not res.ok:
@@ -157,12 +159,25 @@ async def obtener_clima(update: Update, _) -> Estado:
         )
         return Estado.CHOOSING_CITY
 
+    data = res.json()
+    temp = data['main']['temp']
+    weather = data['weather']
+    pressure = data['main']['pressure']
+    humidity = data['main']['humidity']
+    restext = f"""
+    [ {ciudad} ]
+| Temperatura: {temp}C
+| Humedad: {humidity}
+| Presion Atmosferica: {pressure}
+| Descripcion: {weather[0]['description']}
+"""
+
     # Se borra el mensaje temporal en vez de editarlo
     # Esto es solo para poder editar el teclado
     # (edit_text no acepta el tipo ReplyKeyboardMarkup para reply_markup)
     await msg.delete()
     await update.message.reply_text(
-        text=res.text,
+        text=restext,
         reply_markup=main_menu_keyboard,
     )
 
