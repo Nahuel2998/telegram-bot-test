@@ -4,6 +4,8 @@ import logging
 from errno import *
 
 import re
+import random
+import requests
 import toml
 from toml import TomlDecodeError
 from enum import Enum, auto, unique
@@ -32,8 +34,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # <editor-fold desc="[Constants]">
+# Consts para keys de dicts
 CONTADOR = 'contador'
 CONTADOR_MSG_ID = 'contador_msg_id'
+WEATHER_API_KEY = 'WEATHER_API_KEY'
 
 
 @unique
@@ -54,7 +58,7 @@ main_menu_keyboard = ReplyKeyboardMarkup([
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Estado:
     """Empezar conversacion, mostrar menu principal."""
     await update.message.reply_text(
-        text="¡Hola! ¿Qué necesitas? 😊",
+        text="¡Hola! ¿Qué necesitas? 😊\n(Tip: Cancela cualquier comando con /no)",
         reply_markup=main_menu_keyboard,
     )
 
@@ -116,8 +120,54 @@ async def actualizar_contador(update: Update, context: ContextTypes.DEFAULT_TYPE
 # </editor-fold>
 
 
+# <editor-fold desc="[Clima]">
+API_URL = "https://api.openweathermap.org/data/2.5/weather"
+# API_URL = "https://api.openweathermap.org/data/2.5/forecast/daily"
+
+
+async def nuevo_clima(update: Update, _) -> Estado:
+    """Iniciar proceso de obtencion del clima"""
+    await update.message.reply_text(
+        "Ingresa la ciudad de la que quieras ver el clima:",
+        reply_markup=None
+    )
+    return Estado.CHOOSING_CITY
+
+
+async def obtener_clima(update: Update, _) -> Estado:
+    """Obtener clima dada la ciudad proporcionada"""
+    # Mensaje de carga
+    msg = await update.message.reply_text(
+        text=random.choice([
+            "Recompilando informacion...",
+            "Mirando al cielo...",
+            "Testeando aguas...",
+            f"Viajando a {update.message.text}...",
+            "No es mi culpa que los del clima sean tan lentos...",
+        ])
+    )
+    full_url = f"{API_URL}?q={update.message.text}&appid={config[WEATHER_API_KEY]}&units=metric"
+    res = requests.get(full_url)
+
+    if not res.ok:
+        await msg.edit_text("No pude encontrar esa ciudad. Intente con una diferente.")
+        return Estado.CHOOSING_CITY
+
+    # Se borra el mensaje temporal en vez de editarlo
+    # Esto es solo para poder editar el teclado
+    # (edit_text no acepta el tipo ReplyKeyboardMarkup para reply_markup)
+    await msg.delete()
+    await update.message.reply_text(
+        text=res.text,
+        reply_markup=main_menu_keyboard,
+    )
+
+    return Estado.MAIN_MENU
+# </editor-fold>
+
+
 # <editor-fold desc="[Utility Commands]">
-async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Estado:
+async def cancel_command(update: Update, _) -> Estado:
     """Cancelar el ultimo comando."""
     await update.message.reply_text(
         text="Regresando al menu principal.",
@@ -126,7 +176,7 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return Estado.MAIN_MENU
 
 
-async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def cease_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Borrar todos los datos de usuario.
     yes, sin confirmacion.
@@ -142,9 +192,13 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 # </editor-fold>
 
 
+global config
+
+
 # <editor-fold desc="[Main]">
 def main() -> None:
     """Run the bot."""
+    global config
     # Cargar tokens de config.toml
     try:
         config = toml.load("config.toml")
@@ -157,7 +211,7 @@ def main() -> None:
         exit(EINVAL)
 
     # Crear el bot
-    application = Application.builder() \
+    app = Application.builder() \
         .token(config['BOT_TOKEN']) \
         .persistence(PicklePersistence(filepath="userdata")) \
         .build()
@@ -174,16 +228,28 @@ def main() -> None:
 
                 # Handler para actualizar contadores
                 CallbackQueryHandler(actualizar_contador, pattern=r'^C'),
+
+                # Handler para iniciar el proceso de obtener el clima
+                MessageHandler(
+                    filters.Regex(re.compile(r'clima', re.IGNORECASE)), nuevo_clima
+                )
             ],
+            Estado.CHOOSING_CITY: [
+                # Handler para obtener el clima
+                MessageHandler(
+                    # Manejar todos los mensajes de texto que no sean comandos
+                    filters.TEXT & ~filters.COMMAND, obtener_clima
+                )
+            ]
         },
-        fallbacks=[CommandHandler("no", cancel_command), CommandHandler("reset", reset_command)],
+        fallbacks=[CommandHandler("no", cancel_command), CommandHandler("cease", cease_command)],
         name="main",
         persistent=True,
     )
-    application.add_handler(conv_handler)
+    app.add_handler(conv_handler)
 
     # Correr bot
-    application.run_polling()
+    app.run_polling()
 
 
 if __name__ == "__main__":
