@@ -231,7 +231,7 @@ async def cease_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     Usado para debug principalmente.
     """
     await update.message.reply_text(
-        text="Borrando datos de usuario. Usa /start para comenzar de nuevo.",
+        text="Borrando datos de usuario.\nUsa /start para comenzar de nuevo.",
         reply_markup=ReplyKeyboardRemove(),
     )
     await limpiar_contadores(update, context)
