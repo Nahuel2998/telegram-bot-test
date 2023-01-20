@@ -139,9 +139,6 @@ async def actualizar_contador(update: Update, context: ContextTypes.DEFAULT_TYPE
 WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 
-# WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/forecast/daily"
-
-
 async def nuevo_clima(update: Update, _) -> Estado:
     """Iniciar proceso de obtencion del clima"""
     await update.message.reply_text(
