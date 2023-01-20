@@ -10,13 +10,13 @@ Needs a config.toml file in the same dir as [[file:src/main.py][main.py]] contai
 Obviously needs Python too (Python 3.10 was used to make this).
 
 ** Commands
-| Name     | Description                |
-|----------+----------------------------|
-| \/start  | Comenzar bot               | 
-| \/clima  | Consultar el clima         |
-| \/contar | Crear un nuevo contador    |
-| \/no     | Regresar al menu principal |
-| \/cease  | Borrar datos de usuario    |
+| Name    | Description                 |
+|---------+-----------------------------|
+| /start  | Comenzar bot                |
+| /clima  | Consultar el clima          |
+| /contar | Crear un nuevo contador     |
+| /no     | Regresar al menu principal  |
+| /cease  | Borrar datos de usuario     |
 
 ** Files
 *** [[file:src/main.py][src/main.py]]
