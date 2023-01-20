@@ -6,7 +6,7 @@ Telegram bot made with Python using [[https://docs.python-telegram-bot.org/en/st
 Currently can check the weather and has a pretty counter with two buttons.
 
 ** How to run
-Needs a config.toml file in the same dir as main.py containing the fields BOT_TOKEN (your bot token) and WEATHER_API_KEY (your [[https://openweathermap.org/api][OpenWeatherMap API]] key). \\
+Needs a config.toml file in the same dir as [[file:src/main.py][main.py]] containing the fields BOT_TOKEN (your bot token) and WEATHER_API_KEY (your [[https://openweathermap.org/api][OpenWeatherMap API]] key). \\
 Obviously needs Python too (Python 3.10 was used to make this).
 
 ** Files
