@@ -9,6 +9,10 @@ Currently can check the weather and has a pretty counter with two buttons.
 Needs a config.toml file in the same dir as [[file:src/main.py][main.py]] containing the fields BOT_TOKEN (your bot token) and WEATHER_API_KEY (your [[https://openweathermap.org/api][OpenWeatherMap API]] key). \\
 Obviously needs Python too (Python 3.10 was used to make this).
 
+Then, continue as follows:
+- Run [[file:setup.py][setup.py]] to create a venv with the [[file:src/requirements.txt][requirements]].
+- Run [[file:run.py][run.py]] to run the bot using the created venv.
+
 ** Commands
 | Name    | Description                 |
 |---------+-----------------------------|
