@@ -4,6 +4,7 @@ import logging
 from errno import *
 from telegram.error import TelegramError
 
+import os
 import re
 import random
 import requests
@@ -85,6 +86,10 @@ contador_keyboard = InlineKeyboardMarkup(
 )
 
 
+def get_veces_contadas_text(context: ContextTypes.DEFAULT_TYPE) -> str:
+    return f"Veces contadas: {context.user_data.get(CONTADOR)}"
+
+
 async def limpiar_contadores(_, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Eliminar contadores existentes, ya que seran invalidos"""
     # Posiblemente sea mejor eliminar el mensaje, pero hay un limite de 48h para ello
@@ -92,20 +97,18 @@ async def limpiar_contadores(_, context: ContextTypes.DEFAULT_TYPE) -> None:
     if CONTADOR_MSG in context.user_data.keys():
         msg = context.user_data[CONTADOR_MSG]
         await msg.edit_text(
-            text=msg.text
+            text=get_veces_contadas_text(context)
         )
 
 
 async def nuevo_contador(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Crear un nuevo contador."""
-    veces_contadas = f"Veces contadas: {context.user_data.get(CONTADOR)}"
-
     # Si existe otro mensaje con un contador, eliminarle los botones
     await limpiar_contadores(update, context)
 
     context.user_data[CONTADOR_MSG] = (
         await update.message.reply_text(
-            text=veces_contadas,
+            text=get_veces_contadas_text(context),
             reply_markup=contador_keyboard,
         )
     )
@@ -122,7 +125,7 @@ async def actualizar_contador(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     try:
         await update.callback_query.edit_message_text(
-            text=f"Veces contadas: {context.user_data.get(CONTADOR)}",
+            text=get_veces_contadas_text(context),
             reply_markup=contador_keyboard,
         )
     except TelegramError as e:
@@ -184,9 +187,9 @@ async def obtener_clima(update: Update, _) -> Estado:
     w_main = data['main']
     weather = data['weather']
     min_max_temp = \
-        f"\n| ({w_main['temp_min']}°C min | {w_main['temp_max']}°C max)"\
-        if 'temp_min' in w_main.keys() \
-        else ""
+        f"\n| ({w_main['temp_min']}°C min | {w_main['temp_max']}°C max)" \
+        if 'temp_min' in w_main.keys() else \
+        ""
     restext = f"""
     [ {data['name']} ]
 {'~' * (len(data['name']) + 4)}
@@ -256,7 +259,7 @@ def main() -> None:
     global config
     # Cargar tokens de config.toml
     try:
-        config = toml.load("config.toml")
+        config = toml.load(os.path.join(os.path.dirname(__file__), "config.toml"))
         # TODO: Checkear si los tokens son correctos?
         # Too much for 4 hours
     except FileNotFoundError:
@@ -269,7 +272,7 @@ def main() -> None:
     # Crear el bot
     app = Application.builder() \
         .token(config['BOT_TOKEN']) \
-        .persistence(PicklePersistence(filepath="userdata")) \
+        .persistence(PicklePersistence(filepath=os.path.join(os.path.dirname(__file__), "userdata"))) \
         .build()
 
     # Definir handlers
