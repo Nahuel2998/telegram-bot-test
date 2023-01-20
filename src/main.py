@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # <editor-fold desc="[Constants]">
 # Consts para keys de dicts
 CONTADOR = 'contador'
-CONTADOR_MSG_ID = 'contador_msg_id'
+CONTADOR_MSG = 'contador_msg'
 WEATHER_API_KEY = 'WEATHER_API_KEY'
 
 
@@ -46,6 +46,8 @@ class Estado(Enum):
     MAIN_MENU = auto()
     CHOOSING_CITY = auto()
     END = ConversationHandler.END
+
+
 # </editor-fold>
 
 
@@ -67,6 +69,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Estado:
         context.user_data[CONTADOR] = 0
 
     return Estado.MAIN_MENU
+
+
 # </editor-fold>
 
 
@@ -81,27 +85,29 @@ contador_keyboard = InlineKeyboardMarkup(
 )
 
 
+async def limpiar_contadores(_, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Eliminar contadores existentes, ya que seran invalidos"""
+    # Posiblemente sea mejor eliminar el mensaje, pero hay un limite de 48h para ello
+    # Siempre se puede editar, por eso he elegido esto
+    if CONTADOR_MSG in context.user_data.keys():
+        msg = context.user_data[CONTADOR_MSG]
+        await msg.edit_text(
+            text=msg.text
+        )
+
+
 async def nuevo_contador(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Crear un nuevo contador."""
     veces_contadas = f"Veces contadas: {context.user_data.get(CONTADOR)}"
 
     # Si existe otro mensaje con un contador, eliminarle los botones
-    # Posiblemente sea mejor eliminar el mensaje, pero hay un limite de 48h para ello
-    # Siempre se puede editar, por eso he elegido esto
-    if CONTADOR_MSG_ID in context.user_data.keys():
-        chat_id, message_id = context.user_data[CONTADOR_MSG_ID]
-        await update.get_bot().edit_message_text(
-            text=veces_contadas,
-            chat_id=chat_id,
-            message_id=message_id,
-        )
+    await limpiar_contadores(update, context)
 
-    context.user_data[CONTADOR_MSG_ID] = (
-        update.message.chat_id,
-        (await update.message.reply_text(
+    context.user_data[CONTADOR_MSG] = (
+        await update.message.reply_text(
             text=veces_contadas,
             reply_markup=contador_keyboard,
-        )).message_id,
+        )
     )
 
 
@@ -124,12 +130,16 @@ async def actualizar_contador(update: Update, context: ContextTypes.DEFAULT_TYPE
         # No es necesario manejar eso, pero si otras exceptions
         if int(update.callback_query.data[1]):
             raise e
+
+
 # </editor-fold>
 
 
 # <editor-fold desc="[Clima]">
-API_URL = "https://api.openweathermap.org/data/2.5/weather"
-# API_URL = "https://api.openweathermap.org/data/2.5/forecast/daily"
+WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
+
+
+# WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/forecast/daily"
 
 
 async def nuevo_clima(update: Update, _) -> Estado:
@@ -155,27 +165,37 @@ async def obtener_clima(update: Update, _) -> Estado:
             "No es mi culpa que los del clima sean tan lentos...",
         ])
     )
-    full_url = f"{API_URL}?q={ciudad}&appid={config[WEATHER_API_KEY]}&units=metric"
-    res = requests.get(full_url)
+    res = requests.get(
+        WEATHER_API_URL,
+        params={
+            'q': ciudad,
+            'appid': config[WEATHER_API_KEY],
+            'units': 'metric',
+            'lang': 'es',
+        }
+    )
 
     if not res.ok:
         await msg.edit_text(
-            "No pude encontrar esa ciudad. Intente con una diferente."
+            "No pude encontrar esa ciudad.\nIntente con una diferente.\n(/no para cancelar)"
             if res.status_code == 404 else
-            "Algo malo ha pasado, intentelo nuevamente. (/no para rendirse.)"
+            "Algo malo ha pasado, intentelo nuevamente.\n(/no para rendirse)"
         )
         return Estado.CHOOSING_CITY
 
-    data = res.json()
-    temp = data['main']['temp']
+    data = dict(res.json())
+    w_main = data['main']
     weather = data['weather']
-    pressure = data['main']['pressure']
-    humidity = data['main']['humidity']
+    min_max_temp = \
+        f"\n| ({w_main['temp_min']}°C min | {w_main['temp_max']}°C max)"\
+        if 'temp_min' in w_main.keys() \
+        else ""
     restext = f"""
-    [ {ciudad} ]
-| Temperatura: {temp}C
-| Humedad: {humidity}
-| Presion Atmosferica: {pressure}
+    [ {data['name']} ]
+{'~' * (len(data['name']) + 4)}
+| Temperatura: {w_main['temp']}°C {min_max_temp}
+| Humedad: {w_main['humidity']}%
+| Presion Atmosferica: {w_main['pressure']}hPa
 | Descripcion: {weather[0]['description']}
 """
 
@@ -189,6 +209,8 @@ async def obtener_clima(update: Update, _) -> Estado:
     )
 
     return Estado.MAIN_MENU
+
+
 # </editor-fold>
 
 
@@ -212,9 +234,19 @@ async def cease_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         text="Borrando datos de usuario. Usa /start para comenzar de nuevo.",
         reply_markup=ReplyKeyboardRemove(),
     )
+    await limpiar_contadores(update, context)
     context.user_data.clear()
 
     return ConversationHandler.END
+
+
+async def invalid_message(update: Update, _) -> None:
+    """Cuando el usuario ingresa algo no valido, y preferimos informarle"""
+    await update.message.reply_text(
+        text=f"Bastante bien! Pero no entiendo ese mensaje.\n(/no para volver al menu principal)"
+    )
+
+
 # </editor-fold>
 
 
@@ -248,18 +280,15 @@ def main() -> None:
         entry_points=[CommandHandler("start", start)],
         states={
             Estado.MAIN_MENU: [
+                # Handler para iniciar el proceso de obtener el clima
+                MessageHandler(
+                    filters.Regex(re.compile(r'clima', re.IGNORECASE)), nuevo_clima
+                ),
+
                 # Handler para crear contadores
                 MessageHandler(
                     filters.Regex(re.compile(r'conta(?:do)?r', re.IGNORECASE)), nuevo_contador
                 ),
-
-                # Handler para actualizar contadores
-                CallbackQueryHandler(actualizar_contador, pattern=r'^C'),
-
-                # Handler para iniciar el proceso de obtener el clima
-                MessageHandler(
-                    filters.Regex(re.compile(r'clima', re.IGNORECASE)), nuevo_clima
-                )
             ],
             Estado.CHOOSING_CITY: [
                 # Handler para obtener el clima
@@ -269,10 +298,18 @@ def main() -> None:
                 )
             ]
         },
-        fallbacks=[CommandHandler("no", cancel_command), CommandHandler("cease", cease_command)],
+        fallbacks=[
+            CommandHandler("no", cancel_command),
+            CommandHandler("cease", cease_command),
+            MessageHandler(filters.ALL, invalid_message),
+        ],
         name="main",
         persistent=True,
     )
+    # Handler para actualizar contadores
+    app.add_handler(CallbackQueryHandler(actualizar_contador, pattern=r'^C'))
+
+    # Handler principal de la conversacion
     app.add_handler(conv_handler)
 
     # Correr bot
