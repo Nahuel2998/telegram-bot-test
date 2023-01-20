@@ -2,6 +2,7 @@
 
 import logging
 from errno import *
+from telegram.error import TelegramError
 
 import re
 import random
@@ -113,10 +114,16 @@ async def actualizar_contador(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         context.user_data[CONTADOR] = 0
 
-    await update.callback_query.edit_message_text(
-        text=f"Veces contadas: {context.user_data.get(CONTADOR)}",
-        reply_markup=contador_keyboard,
-    )
+    try:
+        await update.callback_query.edit_message_text(
+            text=f"Veces contadas: {context.user_data.get(CONTADOR)}",
+            reply_markup=contador_keyboard,
+        )
+    except TelegramError as e:
+        # Si el usuario presiona Reset dos veces, el mensaje no cambiara, lo cual causa una exception
+        # No es necesario manejar eso, pero si otras exceptions
+        if int(update.callback_query.data[1]):
+            raise e
 # </editor-fold>
 
 
