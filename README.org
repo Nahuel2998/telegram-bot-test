@@ -3,7 +3,8 @@
 
 ** Introduction
 Telegram bot made with Python using [[https://docs.python-telegram-bot.org/en/stable/][python-telegram-bot]]. \\
-Currently can check the weather and has a pretty counter with two buttons.
+Currently can check the weather and has a pretty counter with two buttons. \\
+Oh, it speaks Spanish btw.
 
 ** Files
 *** [[file:src/main.py][src/main.py]]
