@@ -18,7 +18,7 @@ that's
 Dependencies for this bot.
 
 *** [[file:setup.py][setup.py]]
-Utility script to set up a venv with the requirements to run this bot. \\
+Utility script to set up a venv with the [[file:src/requirements.txt][requirements]] to run this bot. \\
 If you want to do it yourself, you're free to.
 
 *** [[file:run.py][run.py]]
